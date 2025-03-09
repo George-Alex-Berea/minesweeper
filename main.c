@@ -18,10 +18,12 @@ typedef struct board {
     unsigned int height;
     unsigned int width;
     unsigned int no_mines;
-    long status;
 } board;
-char mine(board* b, int x, int y);
-char chord(board* b, int x, int y);
+void mine(board* b, int x, int y);
+void chord(board* b, int x, int y);
+// This functions allows the player to select out of easy, medium, hard or custom
+// If custom the player can select the size and number of mines
+// This function also allocates the memory on the heap
 void dificulty_select(board* b) {
     printf("Choose the dificulty:\nType e for easy, m for medium, h for hard, c for custom\n");
     char dificulty;
@@ -89,6 +91,7 @@ void dificulty_select(board* b) {
     for (unsigned int i = 0; i <= b->height; i++)
         b->mask[i] = calloc(b->width, sizeof(unsigned char));
 }
+// This function generates a playable minesweeper board
 void generate_field(board* b) {
     srand(time(NULL));
     unsigned int total_squares = b->height * b->width;
@@ -118,63 +121,79 @@ void generate_field(board* b) {
         }
     }
 }
-char chord(board* b, int x, int y) {b->status++;
-    if (b->mask[x][y] != SHOW) {
-        return INVALID;
-    } else {printf("chord %d %d %ld\n", x, y, b->status);
-        char no_flags = 0;
-        int xstart = -1, xfin = 1;
-        int ystart = -1, yfin = 1;
-        if (x < 1) xstart++;
-        if (y < 1) ystart++;
-        if (x >= b->height - 1) xfin--;
-        if (y >= b->width - 1) yfin--;
-        for (int i = xstart; i <= xfin; i ++)
-            for (int j = ystart; j <= yfin; j ++)
-                if (b->mask[x + i][y + j] == FLAG)
-                    no_flags++;
-        if (no_flags == b->field[x][y]) {
-            for (int i = xstart; i <= xfin; i ++)
-                for (int j = ystart; j <= yfin; j ++)
-                    if (b->mask[x + i][y + j] == HIDE) {
-                        mine(b, x + i, y + j);
-                        if (b->field[x + i][y + j] == BOMB)
-                            return LOST;
-                    }
-        } else {
-            return INVALID;
-        }
-        return VALID;
-    }
+// This function is used to allow the automatic clearing of the squares which next to a 0
+void chord0(board* b, int x, int y) {
+    int xstart = -1, xfin = 1;
+    int ystart = -1, yfin = 1;
+    if (x < 1) xstart++;
+    if (y < 1) ystart++;
+    if (x >= b->height - 1) xfin--;
+    if (y >= b->width - 1) yfin--;
+    for (int i = xstart; i <= xfin; i ++)
+        for (int j = ystart; j <= yfin; j ++)
+            if (b->mask[x + i][y + j] == HIDE) {
+                mine(b, x + i, y + j);
+            }
 }
-char mine(board* b, int x, int y) {b->status++;printf("mine %d %d %ld\n", x, y, b->status);
-    if (b->mask[x][y] != HIDE) {
-        return INVALID;
-    }
+void mine(board* b, int x, int y) {printf("mine %d %d\n", x, y);
     b->mask[x][y] = SHOW;
-    if (b->field[x][y] == BOMB) {
-        return LOST;
-    } else {
-        if (b->field[x][y] == 0) {
-            chord(b, x, y);
-        }
-        return VALID;
+    if (b->field[x][y] == 0) {
+        chord0(b, x, y);
     }
 }
+// This function records the player action inputs and the return value determines whether 
+// the move waas succesfull (VALID), invalid or whether the player lost by playing that move
 char action(board* b) {
     char action_type;
     int x, y;
+    printf("m for mine, c for chord, f for flag, u for unsure\n");
     scanf("%c", &action_type);
     scanf("%d%d", &x, &y);
     switch (action_type) {
         case 'm':
             if (b->mask[x][y] != HIDE) {
-                return -1;
+                return INVALID;
             } else {
-                b->mask[x][y] = SHOW;
-                return 0;
+                mine(b, x, y);
+                if (b->field[x][y] == BOMB) {
+                    return LOST;
+                } else {
+                    return VALID;
+                }
             }
-
+        case 'c':
+            if (b->mask[x][y] != SHOW) {
+                return INVALID;
+            } else {
+                char no_flags = 0;
+                int xstart = -1, xfin = 1;
+                int ystart = -1, yfin = 1;
+                if (x < 1) xstart++;
+                if (y < 1) ystart++;
+                if (x >= b->height - 1) xfin--;
+                if (y >= b->width - 1) yfin--;
+                for (int i = xstart; i <= xfin; i ++)
+                    for (int j = ystart; j <= yfin; j ++)
+                        if (b->mask[x + i][y + j] == FLAG)
+                            no_flags++;
+                if (no_flags == b->field[x][y]) {
+                    for (int i = xstart; i <= xfin; i ++)
+                        for (int j = ystart; j <= yfin; j ++)
+                            if (b->mask[x + i][y + j] == HIDE || b->mask[x + i][y + j] == UNSURE) {
+                                mine(b, x + i, y + j);
+                            }
+                } else {
+                    return INVALID;
+                }
+                for (int i = xstart; i <= xfin; i ++)
+                    for (int j = ystart; j <= yfin; j ++)
+                        if (b->field[x + i][y + j] == BOMB && b->mask[x + i][y + j] == SHOW)
+                            return LOST;
+                return VALID;
+            }
+        default:
+            printf("Invalid");
+            return INVALID;
     }
 }
 void print_board(board* b) {
@@ -209,17 +228,7 @@ int main() {
     board* b = malloc(sizeof(board));
     dificulty_select(b); // this is also where the memory is allocated
     generate_field(b);
-    print_board(b);
-    for (unsigned int i = 0; i < b->height; i++) {
-        for (unsigned int j = 0; j < b->width; j++) {
-            if (b->field[i][j] != BOMB)
-                    printf("%d ", b->field[i][j]);
-                else
-                    printf("* ");
-        }
-        printf("\n");
-    }
-    mine(b, 4, 2);
+    printf("%d\n", action(b));
     print_board(b);
     return 0;
 }
