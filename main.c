@@ -75,6 +75,7 @@ void dificulty_select(board* b) {
     default:
         printf("Invalid input\n");
     }
+    b->no_mines_shown = b->no_mines;
     b->field = malloc(b->height * sizeof(unsigned char*));
     for (unsigned int i = 0; i <= b->height; i++)
         b->field[i] = calloc(b->width, sizeof(unsigned char));
@@ -191,9 +192,11 @@ char action(board* b) {
         case 'f':
             if (b->mask[x][y] == HIDE || b->mask[x][y] == UNSURE) {
                 b->mask[x][y] = FLAG;
+                b->no_mines_shown--;
                 return VALID;
             } else if (b->mask[x][y] == FLAG) {
                 b->mask[x][y] = HIDE;
+                b->no_mines_shown++;
                 return VALID;
             } else {
                 return INVALID;
@@ -214,6 +217,7 @@ char action(board* b) {
     }
 }
 void print_board(board* b) {
+    printf("\n   Mines left: %d\n", b->no_mines_shown);
     printf("     ");
     unsigned int i = 0;
     for (; i < b->width / 10; i++) {
@@ -242,24 +246,53 @@ void print_board(board* b) {
     printf("\n   ┌");
     for (int j = 0; j < b->width; j++)
         printf("──");
-    printf("\n");
+    printf("─┐\n");
     for (unsigned int i = 0; i < b->height; i++) {
         printf("%2d │ ", i);
         for (unsigned int j = 0; j < b->width; j++) {
             if (b->mask[i][j] == HIDE)
-                printf("■ ");
+                printf("□ ");
             if (b->mask[i][j] == SHOW)
                 if (b->field[i][j] != BOMB)
                     printf("%d ", b->field[i][j]);
                 else
                     printf("* ");
             if (b->mask[i][j] == FLAG)
-                printf("⚑ ");
+                printf("■ ");//# % @ $ + ? ! & * ~
             if (b->mask[i][j] == UNSURE)
                 printf("? ");
         }
-        printf("\n");
+        printf("│ %2d\n", i);
     }
+    printf("   └");
+    for (int j = 0; j < b->width; j++)
+        printf("──");
+    printf("─┘\n     ");
+    i = 0;
+    for (; i < b->width / 10; i++) {
+        for (int j = 0; j < 10; j++)
+            printf("%d ", j);
+    }
+    for (int j = 0; j < b->width % 10; j++)
+        printf("%d ", j);
+    printf("\n     ");
+    i = 0;
+    for (; i < b->width / 10; i++) {
+        for (int j = 0; j < 10; j++)
+            if (i) { 
+                printf("%d ", i);
+            } else {
+                printf("  ");
+            }
+    }
+    for (int j = 0; j < b->width % 10; j++) {
+        if (i) {
+            printf("%d ", j);
+        } else {
+            printf("  ");
+        }
+    }
+    printf("\n");
 }
 char check_win(board* b) {
     for (unsigned int i = 0; i < b->height; i++) {
@@ -274,6 +307,7 @@ char check_win(board* b) {
                 b->mask[i][j] = FLAG;
         }
     }
+    b->no_mines_shown = 0;
     printf("\n");
     print_board(b);
     printf(" ^_^  You won!\n");
@@ -299,6 +333,9 @@ int main() {
         switch (action(b)) {
             case VALID:
                 print_board(b);
+                if (check_win(b)) {
+                    return 0;
+                }
                 break;
             case INVALID:
                 print_board(b);
@@ -314,9 +351,6 @@ int main() {
                 print_board(b);
                 printf(" O_O  You lost\n");
                 return 0;
-        }
-        if (check_win(b)) {
-            return 0;
         }
     }
 }
